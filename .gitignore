@@ -1,0 +1,41 @@
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Test and coverage files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE settings
+.vscode/
+.idea/
+
+# Generated output
+output/
+
+# Input resumes and personal documents
+resume/
+resumes/
+*.pdf
+*.docx
+*.doc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Application logs
+logs/
+*.log
