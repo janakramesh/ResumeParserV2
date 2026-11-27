@@ -6,6 +6,7 @@ from .contact_extractor import (
     extract_primary_phone,
     extract_address,
 )
+from .heading_detector import detect_heading
 
 
 EMAIL_PATTERN = re.compile(
@@ -26,7 +27,7 @@ INDIAN_PHONE_PATTERN = re.compile(
 
 NON_NAME_LABELS = {
     "about", "contents", "cv", "index",
-    "portfolio", "profile", "resume",
+    "portfolio", "profile", "resume", "volunteering",
 }
 
 ROLE_WORDS = {
@@ -35,7 +36,21 @@ ROLE_WORDS = {
     "executive", "leader", "manager",
     "mentor", "professional", "specialist",
     "strategist", "technologist",
+    "administrator", "associate", "chief", "coordinator",
+    "head", "intern", "junior", "lead", "officer", "principal",
+    "professor", "researcher", "senior", "supervisor", "technician",
+    "volunteer",
 }
+
+PAGE_MARKER_PATTERN = re.compile(
+    r"^\s*(?:---\s*)?page\s+\d+(?:\s*---)?\s*$",
+    re.IGNORECASE,
+)
+
+NAME_LABEL_PATTERN = re.compile(
+    r"^\s*(?:candidate\s+)?name\s*[:=]\s*",
+    re.IGNORECASE,
+)
 
 
 def _clean_url(url: str) -> str:
@@ -60,17 +75,23 @@ def _link_kind(url: str, label: str = "") -> str | None:
 
 def _extract_name(header: str) -> str:
     single_word_fallback = ""
+    candidates = []
 
     for line in header.splitlines():
-        candidate = line.strip().strip("|•—–- .")
+        candidate = NAME_LABEL_PATTERN.sub("", line.strip())
+        candidate = candidate.strip("|•—–- .")
+
+        if not candidate or PAGE_MARKER_PATTERN.fullmatch(candidate):
+            continue
 
         if (
-            not candidate
-            or candidate.casefold() in NON_NAME_LABELS
+            candidate.casefold() in NON_NAME_LABELS
             or EMAIL_PATTERN.search(candidate)
             or INDIAN_PHONE_PATTERN.search(candidate)
-            or re.search(r"https?://|@|[|/:]", candidate, re.I)
+            or re.search(r"https?://|@|[,;|/:]|\d", candidate, re.I)
+            or detect_heading(candidate)
         ):
+            candidates.append(None)
             continue
 
         tokens = candidate.split()
@@ -80,22 +101,39 @@ def _extract_name(header: str) -> str:
             for token in tokens
         ]
 
-        if (
-            2 <= len(tokens) <= 5
+        is_name = (
+            1 <= len(tokens) <= 5
             and all(token.isalpha() for token in normalized_tokens)
-            and not any(
-                token.casefold() in ROLE_WORDS
-                for token in normalized_tokens
-            )
-        ):
-            return candidate
+            and not any(token.casefold() in ROLE_WORDS for token in normalized_tokens)
+        )
+        if not is_name:
+            candidates.append(None)
+            continue
 
-        if (
-            len(tokens) == 1
-            and normalized_tokens[0].isalpha()
-            and not single_word_fallback
-        ):
+        candidates.append((candidate, tokens))
+
+        if not single_word_fallback:
             single_word_fallback = candidate
+
+    current_run = []
+    for candidate in candidates:
+        if candidate is None:
+            if len(current_run) >= 2:
+                return " ".join(current_run[:5])
+            current_run = []
+            continue
+
+        name, tokens = candidate
+        if len(tokens) >= 2:
+            if len(current_run) >= 2:
+                return " ".join(current_run[:5])
+            return name
+
+        if len(tokens) == 1:
+            current_run.extend(candidate[1])
+
+    if len(current_run) >= 2:
+        return " ".join(current_run[:5])
 
     return single_word_fallback
 
@@ -141,6 +179,13 @@ def extract_structured_fields(
 
     # Name
     name = _extract_name(header)
+    if not name:
+        name = _extract_name(
+            "\n".join(
+                sections.get(section, "") or ""
+                for section in ("personal_information", "objective")
+            )
+        )
 
     # Phone number: use the new validated phone extractor.
     phone_numbers = extract_phone_numbers(all_text)

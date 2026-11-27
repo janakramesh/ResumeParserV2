@@ -8,6 +8,7 @@ PyMuPDF
 python-docx
 
 # OCR Scanned PDFs
+# also install tesseract-ocr in your system
 pytesseract
 pillow
 

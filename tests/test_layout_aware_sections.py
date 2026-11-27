@@ -10,6 +10,11 @@ from resume_parser.understanding.section_splitter import (
     split_sections_from_regions,
 )
 from resume_parser.understanding.resume_analyzer import analyze_resume
+from resume_parser.understanding.layout_analyzer import (
+    PageLayout,
+    TextBlock,
+    extract_layout_regions,
+)
 
 
 class TestLayoutAwareSections(unittest.TestCase):
@@ -96,6 +101,36 @@ Python, Java, SQL""",
             "Bachelor of Computer Science",
             result["education"]
         )
+
+    def test_short_right_column_headings_stay_with_their_content(self):
+        blocks = [
+            TextBlock(1, "SKILLS", 30, 100, 75, 112, 12),
+            TextBlock(1, "Python, SQL", 30, 120, 180, 135, 10),
+            TextBlock(1, "EDUCATION", 30, 200, 90, 212, 12),
+            TextBlock(1, "Computer Science degree", 30, 220, 180, 235, 10),
+            TextBlock(1, "CERTIFICATIONS", 30, 300, 120, 312, 12),
+            TextBlock(1, "Cloud certification", 30, 320, 180, 335, 10),
+            TextBlock(1, "SUMMARY", 216, 100, 261, 112, 12),
+            TextBlock(1, "Experienced technology leader", 216, 120, 560, 140, 10),
+            TextBlock(1, "EXPERIENCE", 216, 180, 269, 192, 12),
+            TextBlock(1, "Senior Engineer\nAcme Corp\nBuilt reliable systems", 216, 200, 560, 250, 10),
+        ]
+        layout = PageLayout(
+            page_number=1,
+            page_width=596,
+            page_height=800,
+            blocks=blocks,
+            columns=2,
+        )
+
+        regions = extract_layout_regions(layout)
+        result = split_sections_from_regions(regions)
+
+        self.assertIn("Python, SQL", result["technical_skills"])
+        self.assertIn("Experienced technology leader", result["summary"])
+        self.assertIn("Senior Engineer", result["experience"])
+        self.assertIn("Computer Science degree", result["education"])
+        self.assertIn("Cloud certification", result["certifications"])
 
     def test_multiple_headings_inside_one_region(self):
         regions = [

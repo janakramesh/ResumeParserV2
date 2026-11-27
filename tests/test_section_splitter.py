@@ -170,6 +170,88 @@ B.Tech
             "B.Tech"
         )
 
+    def test_non_experience_sections_end_experience_content(self):
+        text = """
+EXPERIENCE
+Software Engineer
+Built reliable services.
+
+KEY ACHIEVEMENTS
+Improved performance by 30%.
+
+TRAINING / COURSES
+Cloud Architecture
+"""
+
+        result = split_sections(text)
+
+        self.assertEqual(
+            result["experience"],
+            "Software Engineer\nBuilt reliable services.",
+        )
+        self.assertEqual(
+            result["achievements"],
+            "Improved performance by 30%.",
+        )
+        self.assertEqual(
+            result["certifications"],
+            "Cloud Architecture",
+        )
+
+    def test_experience_trims_only_trailing_document_artifacts(self):
+        text = """
+EXPERIENCE
+Software Engineer
+Built reliable services.
+Worked across www.example.com.
+www.enhancv.com
+Powered by
+--- PAGE 2 ---
+"""
+
+        result = split_sections(text)
+
+        self.assertEqual(
+            result["experience"],
+            "Software Engineer\nBuilt reliable services.\n"
+            "Worked across www.example.com.",
+        )
+
+    def test_training_tail_without_job_details_is_not_experience(self):
+        text = """
+EXPERIENCE
+Software Engineer
+Built reliable services.
+TRAINING and INTERNSHIP
+• Python Full Stack Development with Data Science training at PySpiders
+• Automation Using n8n and AI Tools at MSquare Automations
+1
+"""
+
+        result = split_sections(text)
+
+        self.assertEqual(
+            result["experience"],
+            "Software Engineer\nBuilt reliable services.",
+        )
+
+    def test_internship_with_role_and_dates_stays_in_experience(self):
+        text = """
+EXPERIENCE
+Software Engineer
+Built reliable services.
+TRAINING and INTERNSHIP
+Software Engineering Intern
+Acme
+2024
+Improved test coverage.
+"""
+
+        result = split_sections(text)
+
+        self.assertIn("Software Engineering Intern", result["experience"])
+        self.assertIn("Improved test coverage.", result["experience"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

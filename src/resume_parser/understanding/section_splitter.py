@@ -5,10 +5,35 @@ Splits cleaned resume text into individual sections.
 Uses heading_detector to recognize section boundaries.
 """
 
+import re
 from collections import defaultdict
 
 from .heading_detector import detect_heading, normalize_heading
 
+
+TRAINING_EXPERIENCE_HEADINGS = {
+    "training and internship",
+    "training & internship",
+}
+
+EXPERIENCE_EVIDENCE_PATTERN = re.compile(
+    r"\b(?:intern|trainee|developer|engineer|analyst|manager|consultant|"
+    r"architect|designer|technician|supervisor)\b"
+    r"|\b(?:19|20)\d{2}\b|\b(?:present|current)\b",
+    re.IGNORECASE,
+)
+
+EXPERIENCE_TAIL_ARTIFACTS = (
+    re.compile(r"^(?:https?://|www\.)\S+$", re.IGNORECASE),
+    re.compile(r"^powered by\b", re.IGNORECASE),
+    re.compile(r"^(?:---\s*)?page\s+\d+(?:\s*---)?$", re.IGNORECASE),
+    re.compile(r"^\d{1,3}$"),
+    re.compile(
+        r"^please note:\s*if you (?:have )?received this document in error\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^connect to linkedin\b", re.IGNORECASE),
+)
 
 TABLE_SECTION_HEADERS = {
     ("year", "title", "location", "company"): "experience",
@@ -21,6 +46,29 @@ TABLE_SECTION_HEADERS = {
     ): "education",
     ("project name", "details", "technology"): "projects",
 }
+
+
+def _trim_experience_tail(lines: list[str]) -> list[str]:
+    """Drop trailing page and template artifacts without altering job content."""
+    for index, line in enumerate(lines):
+        if normalize_heading(line) not in TRAINING_EXPERIENCE_HEADINGS:
+            continue
+
+        training_content = "\n".join(lines[index + 1:])
+        if not EXPERIENCE_EVIDENCE_PATTERN.search(training_content):
+            lines = lines[:index]
+            break
+
+    end = len(lines)
+
+    while end:
+        line = lines[end - 1].strip()
+        if not line or any(pattern.match(line) for pattern in EXPERIENCE_TAIL_ARTIFACTS):
+            end -= 1
+            continue
+        break
+
+    return lines[:end]
 
 
 def _detect_table_section(lines: list[str], start: int):
@@ -93,6 +141,11 @@ def split_sections(text: str) -> dict[str, str]:
 
             # Ensure empty sections are also represented.
             sections[current_section]
+            if (
+                heading == "experience"
+                and normalize_heading(line) in TRAINING_EXPERIENCE_HEADINGS
+            ):
+                sections[current_section].append(line)
 
         else:
             sections[current_section].append(line)
@@ -103,7 +156,12 @@ def split_sections(text: str) -> dict[str, str]:
     result = {}
 
     for section, lines in sections.items():
-        content = "\n".join(lines).strip()
+        section_lines = (
+            _trim_experience_tail(lines)
+            if section == "experience"
+            else lines
+        )
+        content = "\n".join(section_lines).strip()
 
         result[section] = content
 

@@ -14,7 +14,7 @@ PyMuPDF is already used by the project. OpenCV is optional; install `opencv-pyth
 
 ## Tesseract executable
 
-Install the Tesseract OCR application for Windows. The parser automatically detects `C:\Games\tesseract\tesseract.exe` when present. For another installation location, set the executable path before running the parser:
+Install the Tesseract OCR application for Windows. The parser automatically detects `C:\Program Files\Tesseract-OCR\tesseract.exe` when present. For another installation location, set the executable path before running the parser:
 
 ```powershell
 $env:TESSERACT_CMD = "C:\path\to\tesseract.exe"

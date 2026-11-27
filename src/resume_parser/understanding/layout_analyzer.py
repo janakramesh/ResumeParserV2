@@ -120,26 +120,34 @@ def detect_columns(blocks, page_width):
     if len(blocks) < 2 or page_width <= 0:
         return 1
 
-    page_center = page_width / 2
-
     # Exclude full-width blocks before detecting columns.
     candidate_blocks = [
         block for block in blocks
         if not _is_full_width(block, page_width)
     ]
 
+    return 2 if _column_boundary(candidate_blocks, page_width) is not None else 1
+
+
+def _column_boundary(blocks, page_width):
+    """Estimate the horizontal gap separating the two text columns."""
+    if page_width <= 0:
+        return None
+
+    page_center = page_width / 2
+
     left_blocks = [
-        block for block in candidate_blocks
+        block for block in blocks
         if (block.x0 + block.x1) / 2 < page_center
     ]
 
     right_blocks = [
-        block for block in candidate_blocks
+        block for block in blocks
         if (block.x0 + block.x1) / 2 >= page_center
     ]
 
     if not left_blocks or not right_blocks:
-        return 1
+        return None
 
     # Use median boundaries to reduce the effect of
     # unusually wide individual text blocks.
@@ -159,11 +167,21 @@ def detect_columns(blocks, page_width):
         len(right_left_edges) // 2
     ]
 
-    # A visible horizontal gap is needed between columns.
     if median_left_edge < median_right_edge:
-        return 2
+        return (median_left_edge + median_right_edge) / 2
 
-    return 1
+    return None
+
+
+def _is_left_column(block, page_center, column_boundary):
+    """Classify short headings by their position, not their text width."""
+    if column_boundary is not None:
+        if block.x1 <= column_boundary:
+            return True
+        if block.x0 >= column_boundary:
+            return False
+
+    return (block.x0 + block.x1) / 2 < page_center
 
 
 def analyze_page_layout(page, page_number):
@@ -189,7 +207,7 @@ def _sort_column_blocks(blocks):
     )
 
 
-def _read_column_region(blocks, page_width):
+def _read_column_region(blocks, page_width, column_boundary=None):
     """
     Read a vertical region containing two columns.
 
@@ -202,10 +220,7 @@ def _read_column_region(blocks, page_width):
     right_blocks = []
 
     for block in blocks:
-
-        center_x = (block.x0 + block.x1) / 2
-
-        if center_x < page_center:
+        if _is_left_column(block, page_center, column_boundary):
             left_blocks.append(block)
         else:
             right_blocks.append(block)
@@ -242,6 +257,13 @@ def reconstruct_reading_order(layout):
         )
 
     else:
+        column_boundary = _column_boundary(
+            [
+                block for block in blocks
+                if not _is_full_width(block, layout.page_width)
+            ],
+            layout.page_width,
+        )
         full_width_blocks = [
             block for block in blocks
             if _is_full_width(block, layout.page_width)
@@ -270,7 +292,8 @@ def reconstruct_reading_order(layout):
             ordered_blocks.extend(
                 _read_column_region(
                     current_region,
-                    layout.page_width
+                    layout.page_width,
+                    column_boundary,
                 )
             )
 
@@ -291,7 +314,8 @@ def reconstruct_reading_order(layout):
         ordered_blocks.extend(
             _read_column_region(
                 remaining_blocks,
-                layout.page_width
+                layout.page_width,
+                column_boundary,
             )
         )
 
@@ -357,6 +381,10 @@ def extract_layout_regions(layout):
         block for block in blocks
         if not _is_full_width(block, layout.page_width)
     ]
+    column_boundary = _column_boundary(
+        column_blocks,
+        layout.page_width,
+    )
 
     regions = []
     remaining_blocks = list(column_blocks)
@@ -370,12 +398,12 @@ def extract_layout_regions(layout):
 
         left_blocks = [
             block for block in region_blocks
-            if (block.x0 + block.x1) / 2 < page_center
+            if _is_left_column(block, page_center, column_boundary)
         ]
 
         right_blocks = [
             block for block in region_blocks
-            if (block.x0 + block.x1) / 2 >= page_center
+            if not _is_left_column(block, page_center, column_boundary)
         ]
 
         for column in (left_blocks, right_blocks):

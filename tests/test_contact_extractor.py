@@ -82,6 +82,31 @@ class TestAddressExtraction(unittest.TestCase):
 
         self.assertEqual(extract_address(text), "")
 
+    def test_page_marker_is_not_an_address(self):
+        self.assertEqual(
+            extract_address("--- PAGE 1 ---\nAIDEN\nWILLIAMS"),
+            "",
+        )
+
+    def test_contact_location_outside_header_is_found(self):
+        text = """
+        --- PAGE 1 ---
+        AIDEN
+        WILLIAMS
+        TECHNICAL SKILLS
+        Python, SQL
+        aw@example.com Linkedin Austin, Texas
+        EXPERIENCE
+        Engineer
+        Acme Corp
+        Seattle, Washington
+        """
+
+        self.assertEqual(
+            extract_address(text),
+            "Austin, Texas",
+        )
+
     def test_address_with_social_links(self):
         text = """
         Janak Ramesh

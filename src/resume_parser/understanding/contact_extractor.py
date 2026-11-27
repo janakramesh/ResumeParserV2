@@ -133,6 +133,17 @@ ADDRESS_STRUCTURE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+PAGE_MARKER_PATTERN = re.compile(
+    r"^\s*(?:---\s*)?page\s+\d+(?:\s*---)?\s*$",
+    re.IGNORECASE,
+)
+
+CONTACT_HINT_PATTERN = re.compile(
+    r"\b(?:e-?mail|phone|mobile|telephone|linkedin|github|contact)\b"
+    r"|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+    re.IGNORECASE,
+)
+
 NARRATIVE_MARKER_PATTERN = re.compile(
     r"\b(?:I|we|he|she|they|my|our|his|her|is|are|was|were|has|have|"
     r"had|focus|job|career|project|experience|worked|working|managed|"
@@ -148,6 +159,10 @@ def _normalize_line(line: str) -> str:
 
 def _is_section_heading(line: str) -> bool:
     return detect_heading(line) is not None
+
+
+def _is_page_marker(line: str) -> bool:
+    return PAGE_MARKER_PATTERN.fullmatch(line.strip()) is not None
 
 
 def _clean_address_candidate(line: str) -> str:
@@ -179,7 +194,15 @@ def _clean_address_candidate(line: str) -> str:
     )
 
     line = re.sub(
-        r"\b(?:linkedin|github|portfolio|website)(?:\.com)?\b",
+        r"\b[\w-]+\.(?:com|org|net|edu|gov|io|co|uk)\b",
+        "",
+        line,
+        flags=re.IGNORECASE,
+    )
+
+    line = re.sub(
+        r"\b(?:\S*email\S*|\S*linkedin\S*|\S*tinkedin\S*|"
+        r"linkedin|github|portfolio|website)\b",
         "",
         line,
         flags=re.IGNORECASE,
@@ -191,7 +214,11 @@ def _clean_address_candidate(line: str) -> str:
         line,
     )
 
-    line = re.sub(r"^[\s|,;:—–-]+|[\s|,;:—–-]+$", "", line)
+    line = re.sub(
+        r"^[\s|,;:—–()-]+|[\s|,;:—–()-]+$",
+        "",
+        line,
+    )
 
     return _normalize_line(line)
 
@@ -210,7 +237,12 @@ def _is_narrative_line(line: str) -> bool:
 def _is_plausible_address(line: str, *, labelled: bool = False) -> bool:
     """Reject prose while allowing address fragments under a label."""
 
-    if not line or len(line) > 240 or _is_narrative_line(line):
+    if (
+        not line
+        or len(line) > 240
+        or _is_page_marker(line)
+        or _is_narrative_line(line)
+    ):
         return False
 
     if "@" in line or "http" in line.casefold():
@@ -320,10 +352,48 @@ def _extract_header_address(lines: list[str]) -> str:
 
     for line in lines:
         candidate = _normalize_line(line)
+        if _is_page_marker(candidate):
+            continue
+
         if _is_section_heading(candidate):
             break
 
         candidate = _clean_address_candidate(candidate)
+        if _is_plausible_address(candidate):
+            return candidate
+
+    return ""
+
+
+def _extract_contact_line_address(lines: list[str]) -> str:
+    """Find a location attached to contact details in identity sections."""
+    identity_sections = {
+        "",
+        "header",
+        "personal_information",
+        "technical_skills",
+        "summary",
+        "objective",
+    }
+    section = ""
+
+    for line in lines:
+        candidate_line = _normalize_line(line)
+        if _is_page_marker(candidate_line):
+            continue
+
+        heading = detect_heading(candidate_line)
+        if heading:
+            section = heading
+            continue
+
+        if (
+            section not in identity_sections
+            or not CONTACT_HINT_PATTERN.search(candidate_line)
+        ):
+            continue
+
+        candidate = _clean_address_candidate(candidate_line)
         if _is_plausible_address(candidate):
             return candidate
 
@@ -337,6 +407,7 @@ def extract_address(text: str) -> str:
     2. Present address
     3. Other labelled address
     4. Header-based fallback
+    5. Contact-line location in an identity section
     """
 
     if not text:
@@ -348,7 +419,11 @@ def extract_address(text: str) -> str:
     if labelled_address:
         return labelled_address
 
-    return _extract_header_address(lines)
+    header_address = _extract_header_address(lines)
+    if header_address:
+        return header_address
+
+    return _extract_contact_line_address(lines)
 
 
 

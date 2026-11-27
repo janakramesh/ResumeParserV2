@@ -61,7 +61,6 @@ SECTION_ALIASES = {
         "training & internship",
         "internships",
         "internship",
-        "training",
     ],
 
     "education": [
@@ -91,10 +90,19 @@ SECTION_ALIASES = {
         "professional certifications",
         "courses and certifications",
         "licenses and certifications",
+        "training",
+        "training courses",
+        "training / courses",
+        "training/courses",
+        "training and certificates",
+        "training/certificates",
+        "training / certificates",
+        "courses",
     ],
 
     "achievements": [
         "achievements",
+        "key achievements",
         "accomplishments",
         "awards",
         "honors and awards",

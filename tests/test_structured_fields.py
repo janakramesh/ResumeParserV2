@@ -25,6 +25,42 @@ class TestStructuredFields(unittest.TestCase):
 
         self.assertEqual(result["name"], "Vilas S Khole")
 
+    def test_name_joins_lines_split_by_ocr(self):
+        result = extract_structured_fields({
+            "header": "--- PAGE 1 ---\nAIDEN\n\nWILLIAMS"
+        })
+
+        self.assertEqual(result["name"], "AIDEN WILLIAMS")
+
+    def test_name_skips_location_and_joins_split_name(self):
+        result = extract_structured_fields({
+            "header": (
+                "+1-(234)-555-1234\n"
+                "linkedin.com\n"
+                "San Jose, California\n"
+                "MADISON\n"
+                "TAYLOR\n"
+                "VOLUNTEERING"
+            )
+        })
+
+        self.assertEqual(result["name"], "MADISON TAYLOR")
+
+    def test_name_and_address_can_be_in_objective_section(self):
+        result = extract_structured_fields({
+            "objective": (
+                "Hayden Smith\n"
+                "214 Mitre Avenue, Park Hill, 3045 | "
+                "04501 123 456 | haydensmith@email.com"
+            )
+        })
+
+        self.assertEqual(result["name"], "Hayden Smith")
+        self.assertEqual(
+            result["address"],
+            "214 Mitre Avenue, Park Hill, 3045",
+        )
+
     def test_education_table_is_extracted_from_column_headers(self):
         regions = [
             """--- PAGE 7 | REGION 2 ---
