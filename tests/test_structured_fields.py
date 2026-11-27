@@ -49,6 +49,33 @@ II Class - 59%"""
         self.assertIn("B.Sc. (Comp. Sci.)", fields["education"])
         self.assertNotIn("Grade %", fields["education"])
 
+    def test_address_uses_full_resume_and_prefers_permanent_label(self):
+        sections = {
+            "header": (
+                "Vilas S Khole\n"
+                "vskhole@yahoo.com\n"
+                "+91 855 182 6442"
+            ),
+            "experience": "Infotech, US",
+            "achievements": "100% focus on his Job.",
+            "personal_information": (
+                "Present Address: 401 Tamkeen Towers, Al Khan Street, "
+                "Sharjah (UAE)\n"
+                "Permanent Address: G-401, Kubhera Vistas, "
+                "Saravanampatti, Coimbatore 641035 [IN]"
+            ),
+        }
+
+        fields = extract_structured_fields(sections)
+
+        self.assertEqual(
+            fields["address"],
+            "G-401, Kubhera Vistas, Saravanampatti, "
+            "Coimbatore 641035 [IN]",
+        )
+        self.assertEqual(fields["email"], "vskhole@yahoo.com")
+        self.assertEqual(fields["phone_number"], "+918551826442")
+
 
 if __name__ == "__main__":
     unittest.main()

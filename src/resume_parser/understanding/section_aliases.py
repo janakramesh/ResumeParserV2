@@ -55,6 +55,13 @@ SECTION_ALIASES = {
         "people and ops management",
         "people & ops management",
         "geographic experience (countries worked for)",
+
+        # Additional aliases
+        "training and internship",
+        "training & internship",
+        "internships",
+        "internship",
+        "training",
     ],
 
     "education": [

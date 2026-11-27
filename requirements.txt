@@ -7,6 +7,9 @@ PyMuPDF
 # DOCX Extraction
 python-docx
 
-# spaCy for NLP
+# OCR Scanned PDFs
+pytesseract
+pillow
 
-# ollama
+# phone number extraction
+phonenumbers

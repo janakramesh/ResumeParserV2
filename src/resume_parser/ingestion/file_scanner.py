@@ -18,7 +18,7 @@ class ScanReport:
     skipped_files: list
 
 
-SUPPORTED_FORMATS = {".pdf", ".docx"}
+SUPPORTED_FORMATS = {".pdf", ".docx", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 
 
 def validate_pdf(file_path: Path) -> bool:
@@ -45,8 +45,19 @@ def validate_docx(file_path: Path) -> bool:
         return False
 
 
+def validate_image(file_path: Path) -> bool:
+    """Verify that an image can be opened and decoded."""
+    try:
+        from PIL import Image
+        with Image.open(file_path) as image:
+            image.verify()
+        return True
+    except Exception:
+        return False
+
+
 def scan_resume_folder(folder_path: Path) -> ScanReport:
-    """Scan the folder and identify valid PDF and DOCX files."""
+    """Scan the folder and identify valid PDF, DOCX and image files."""
 
     valid_files = []
     skipped_files = []
@@ -91,9 +102,12 @@ def scan_resume_folder(folder_path: Path) -> ScanReport:
         if extension == ".pdf":
             is_valid = validate_pdf(file_path)
             file_type = "PDF"
-        else:
+        elif extension == ".docx":
             is_valid = validate_docx(file_path)
             file_type = "DOCX"
+        else:
+            is_valid = validate_image(file_path)
+            file_type = "IMAGE"
 
         if is_valid:
             valid_files.append(

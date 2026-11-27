@@ -5,6 +5,7 @@ from pathlib import Path
 
 from src.resume_parser.extractors.docx_extractor import extract_docx_text
 from src.resume_parser.extractors.pdf_extractor import extract_pdf_text
+from src.resume_parser.extractors.ocr_extractor import OCRConfig, extract_image_text
 from src.resume_parser.ingestion.file_scanner import scan_resume_folder
 from src.resume_parser.understanding.resume_analyzer import analyze_resume
 from src.resume_parser.understanding.structured_fields import extract_structured_fields
@@ -25,14 +26,17 @@ class ProcessingResult:
     total_sections: int = 0
     average_confidence: float = 0.0
     analysis_error: str = ""
+    ocr_pages: list[int] | None = None
+    page_methods: list[str] | None = None
 
 
 class ResumeExtractionEngine:
 
-    def __init__(self, resume_folder: Path, output_folder: Path):
+    def __init__(self, resume_folder: Path, output_folder: Path, ocr_config: OCRConfig | None = None):
 
         self.resume_folder = Path(resume_folder)
         self.output_folder = Path(output_folder)
+        self.ocr_config = ocr_config or OCRConfig()
 
         self.raw_folder = self.output_folder / "raw"
         self.cleaned_folder = self.output_folder / "cleaned"
@@ -61,18 +65,24 @@ class ResumeExtractionEngine:
 
             if resume_file.file_type == "PDF":
 
-                result = extract_pdf_text(resume_file.path)
-
-                needs_ocr = (
-                    result.successful
-                    and len(result.extracted_text.strip()) < 20
-                )
+                result = extract_pdf_text(resume_file.path, self.ocr_config)
+                needs_ocr = bool(getattr(result, "ocr_pages", []))
 
             elif resume_file.file_type == "DOCX":
 
                 result = extract_docx_text(resume_file.path)
                 needs_ocr = False
 
+            elif resume_file.file_type == "IMAGE":
+                result = extract_image_text(resume_file.path, self.ocr_config)
+                needs_ocr = True
+                if result.successful:
+                    result.file_name = resume_file.path.name
+                    result.text_regions = []
+                    result.hyperlinks = []
+                    result.total_pages = 1
+                    result.ocr_pages = [1]
+                    result.page_methods = ["ocr"]
             else:
                 raise ValueError(
                     f"Unsupported type: {resume_file.file_type}"
@@ -112,7 +122,11 @@ class ResumeExtractionEngine:
 
                 analysis_regions = None
 
-                if resume_file.file_type == "PDF":
+                if (
+                    resume_file.file_type == "PDF"
+                    and result.text_regions
+                    and not result.ocr_pages
+                ):
                     analysis_regions = [
                         normalize_resume_text(region)
                         for region in result.text_regions
@@ -142,6 +156,12 @@ class ResumeExtractionEngine:
                     "file_name": resume_file.path.name,
                     **key_fields,
                     "file_type": resume_file.file_type,
+                    "extraction": {
+                        "total_pages": getattr(result, "total_pages", 1 if resume_file.file_type == "IMAGE" else None),
+                        "ocr_pages": getattr(result, "ocr_pages", []),
+                        "page_methods": getattr(result, "page_methods", []),
+                        "page_errors": getattr(result, "page_errors", []),
+                    },
                     "sections": analysis.sections,
                     "validation": validation_data,
                     "total_sections": analysis.total_sections,
@@ -194,7 +214,9 @@ class ResumeExtractionEngine:
                 structured_output_path=structured_output_path,
                 total_sections=total_sections,
                 average_confidence=average_confidence,
-                analysis_error=analysis_error
+                analysis_error=analysis_error,
+                ocr_pages=getattr(result, "ocr_pages", []),
+                page_methods=getattr(result, "page_methods", [])
             )
 
             self.logger.info(
@@ -295,5 +317,5 @@ class ResumeExtractionEngine:
         print(f"Total processed: {len(self.results)}")
         print(f"Successful: {successful}")
         print(f"Failed: {failed}")
-        print(f"Possible scanned PDFs: {ocr_review}")
+        print(f"Files using OCR: {ocr_review}")
         print("\n===================================")
