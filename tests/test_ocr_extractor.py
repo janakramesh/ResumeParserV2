@@ -49,14 +49,27 @@ class OCRExtractorTests(unittest.TestCase):
         self.assertEqual(result.size, (200, 160))
 
     @patch("src.resume_parser.extractors.ocr_extractor._load_tesseract", return_value=FakeTesseract)
-    def test_image_ocr_success(self, _mock):
+    def test_image_ocr_success_with_confidence(self, _mock):
         result = extract_image_text(
             Image.new("RGB", (100, 100), "white"),
-            OCRConfig(auto_rotate=False, deskew=False),
+            OCRConfig(auto_rotate=False, deskew=False, calculate_confidence=True),
         )
         self.assertTrue(result.successful)
         self.assertIn("Jane Doe", result.extracted_text)
         self.assertEqual(result.confidence, 85)
+
+    @patch("src.resume_parser.extractors.ocr_extractor._load_tesseract", return_value=FakeTesseract)
+    def test_image_ocr_skips_confidence_pass_by_default(self, _mock):
+        with patch.object(FakeTesseract, "image_to_data", wraps=FakeTesseract.image_to_data) as data:
+            result = extract_image_text(
+                Image.new("RGB", (100, 100), "white"),
+                OCRConfig(auto_rotate=False, deskew=False),
+            )
+
+        self.assertTrue(result.successful)
+        self.assertIn("Jane Doe", result.extracted_text)
+        self.assertEqual(result.confidence, 0)
+        data.assert_not_called()
 
     def test_corrupt_image_fails_without_raising(self):
         result = extract_image_text("/path/that/does/not/exist.png")

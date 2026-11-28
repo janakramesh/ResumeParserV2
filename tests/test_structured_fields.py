@@ -61,6 +61,14 @@ class TestStructuredFields(unittest.TestCase):
             "214 Mitre Avenue, Park Hill, 3045",
         )
 
+    def test_primary_phone_field_is_omitted_and_phone_list_is_kept(self):
+        result = extract_structured_fields({
+            "header": "Jane Doe\njane@example.com"
+        })
+
+        self.assertNotIn("phone_number", result)
+        self.assertEqual(result["phone_numbers"], [])
+
     def test_education_table_is_extracted_from_column_headers(self):
         regions = [
             """--- PAGE 7 | REGION 2 ---
@@ -110,7 +118,8 @@ II Class - 59%"""
             "Coimbatore 641035 [IN]",
         )
         self.assertEqual(fields["email"], "vskhole@yahoo.com")
-        self.assertEqual(fields["phone_number"], "+918551826442")
+        self.assertEqual(fields["phone_numbers"], ["+918551826442"])
+        self.assertNotIn("phone_number", fields)
 
 
 if __name__ == "__main__":

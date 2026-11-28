@@ -3,7 +3,6 @@ import re
 from urllib.parse import urlparse
 from .contact_extractor import (
     extract_phone_numbers,
-    extract_primary_phone,
     extract_address,
 )
 from .heading_detector import detect_heading
@@ -189,7 +188,6 @@ def extract_structured_fields(
 
     # Phone number: use the new validated phone extractor.
     phone_numbers = extract_phone_numbers(all_text)
-    phone_number = phone_numbers[0] if phone_numbers else ""
 
     # Keep section boundaries so labelled addresses can be searched
     # throughout the resume without letting header fallback scan later sections.
@@ -249,7 +247,6 @@ def extract_structured_fields(
 
     return {
         "name": name,
-        "phone_number": phone_number,
         "phone_numbers": phone_numbers,
         "address": address,
         "email": email,

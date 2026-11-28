@@ -12,6 +12,7 @@ __pycache__/
 # Environment variables and secrets
 .env
 .env.*
+!.env.example
 
 # Test and coverage files
 .pytest_cache/
@@ -31,6 +32,12 @@ resumes/
 *.pdf
 *.docx
 *.doc
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.bmp
 
 # OS files
 .DS_Store

@@ -33,6 +33,7 @@ class OCRConfig:
     threshold: bool = False
     tesseract_cmd: str | None = None
     timeout_seconds: int = 45
+    calculate_confidence: bool = False
 
 
 @dataclass
@@ -144,17 +145,18 @@ def extract_image_text(image: Image.Image | str | Path, config: OCRConfig | None
             prepared, lang=config.language, config=tess_config,
             timeout=config.timeout_seconds,
         ).strip()
-        try:
-            data = pytesseract.image_to_data(
-                prepared, lang=config.language, config=tess_config,
-                output_type=pytesseract.Output.DICT,
-                timeout=config.timeout_seconds,
-            )
-            scores = [float(value) for value in data.get("conf", []) if str(value) not in {"-1", ""}]
-            confidence = sum(scores) / len(scores) if scores else 0.0
-        except Exception as exc:
-            logger.debug("Could not calculate OCR confidence: %s", exc)
-            confidence = 0.0
+        confidence = 0.0
+        if config.calculate_confidence:
+            try:
+                data = pytesseract.image_to_data(
+                    prepared, lang=config.language, config=tess_config,
+                    output_type=pytesseract.Output.DICT,
+                    timeout=config.timeout_seconds,
+                )
+                scores = [float(value) for value in data.get("conf", []) if str(value) not in {"-1", ""}]
+                confidence = sum(scores) / len(scores) if scores else 0.0
+            except Exception as exc:
+                logger.debug("Could not calculate OCR confidence: %s", exc)
         return OCRResult(text, True, confidence)
     except (UnidentifiedImageError, OSError, ValueError, RuntimeError) as exc:
         logger.warning("OCR could not process image: %s", exc)
